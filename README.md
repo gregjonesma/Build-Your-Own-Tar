@@ -24,3 +24,11 @@ The corresponding commands would be:
 python3 cctar.py list files.tar 
 python3 cctar.py create files.tar file1.txt file2.txt file3.txt
 python3 cctar.py extract files.tar 
+
+This is not a complete re-creation of the tar command.
+
+It is limited by the implied scope of the original challenge.
+For example:
+* The file names do not include subdirectories.
+* The contents of each file are small. There is no overflow past 512 bytes.
+* Only 3 files are put into the original tarball. Additional files may, or may not work. 
