@@ -1,60 +1,84 @@
 #cctar.py
-# 4/22/2024
+# 4/23/2024
 # Purpose Proceed with the coding challenge: "Build Your Own Tar"
-# In this case, manually create a tar ball.
+# List the files in a tarball.
+# Extract the files from a tarball.
+# Create your own tarball.
 
 import os
 import sys
 import pwd
 import grp
+import struct
+
+# Define the lengths of each string in the header
+# This ties back to the tar documentation's data structure for the header records.
+header_string = [100, 8, 8, 8, 12, 12, 8, 1, 100, 6, 2, 32, 32, 8, 8, 155, 12]
+
+# Construct the format string dynamically
+record_format = ''.join(['{}s'.format(length) for length in header_string])
+
+# Calculate the size of each record based on the format
+# Since this is duplicating tar functionality, we know this ends up being 512 bytes.
+record_size = struct.calcsize(record_format)
 
 # Code to list the contents of the tar file
 def list_contents(tar_file):
     # Open the tar file in binary mode
     with open(tar_file, 'rb') as file:
         while True:
-            # Read a block (512 bytes) from the tar file
-            block = file.read(512)
+            # Read the binary data
+            binary_data = file.read(record_size)
 
-            # If the block is empty, we've reached the end of the file
-            if not block:
+            # If the binary_data is empty, we've reached the end of the file
+            if binary_data == b'\x00' * record_size:
                 break
+            #print("Read {} bytes".format(len(binary_data)))
+            #print("And yet, binary data ...", binary_data)
+            # Unpack the record using the specified format
+            record = struct.unpack(record_format, binary_data)
 
-            # Extract file metadata from the block
-            filename = block[:100].decode().rstrip('\x00')
-            file_size_padded = block[124:136].decode().rstrip('\x00')
-            
-            if len(file_size_padded) !=0: 
-                # Remove null bytes from the file size
-                file_size = int(file_size_padded.replace('\x00', ''), 8)
+            # Convert each byte string to a Python string
+            string_values = [field.decode('utf-8').strip('b\x00') for field in record]
+            file_size_padded = string_values[4]
 
-                # Print or process file metadata as desired
-                print(filename)
-               
-                # Skip to the next block that contains the file's data
-                file.seek(file_size // 512 + (1 if file_size % 512 != 0 else 0) * 512, 1)
-            else:
-                break
+            # Remove null bytes from the file size
+            file_size = int(file_size_padded, 8)
+
+            # Print the unpacked record including the strings
+            print(string_values[0])
+            # Skip to the next block that contains the file's data
+            file.seek((file_size // record_size + (1 if file_size % record_size != 0 else 0) ) * record_size, 1)
+   
+
 # Code to extract the contents of the tar file
 def extract_contents(tar_file):
     # Open the tar file in binary mode
     with open(tar_file, 'rb') as file:
         while True:
             # Read a block (512 bytes) from the tar file
-            block = file.read(512)
+            # We use the variable record_size to make this more flexible.
+            binary_data = file.read(record_size)
 
-            # If the block is empty, we've reached the end of the file
-            if not block:
+            # If the binary_data is empty, we've reached the end of the file
+            if binary_data == b'\x00' * record_size:
                 break
+ 
+            # Unpack the record using the specified format
+            record = struct.unpack(record_format, binary_data)
 
-            # Extract file metadata from the block
-            filename = block[:100].decode().rstrip('\x00')
-            file_size_padded = block[124:136].decode().rstrip('\x00')
-            
-            if len(file_size_padded) !=0: 
+            # Convert each byte string to a Python string
+            string_values = [field.decode('utf-8').strip('b\x00') for field in record]
+
+            file_size_padded = string_values[4]
+                        
+            if len(file_size_padded) !=0:
                 # Remove null bytes from the file size
-                file_size = int(file_size_padded.replace('\x00', ''), 8)
+                file_size = int(file_size_padded, 8)
 
+                # Just so I can follow this in 6 months, I am putting the fiel name
+                # in an intuitively named variable.
+                filename = string_values[0]
                 # Print or process file metadata as desired
                 print(filename)
 
@@ -88,12 +112,16 @@ def create_tar_file(file_list, ip_new_tar_file):
         # Initialize my variables.
         vb_file_contents_pre_chksum = ''
         vb_file_contents_post_chksum = ''
+        my_record = [ ]
         
         # Add your processing logic here for each file_name
         # Check if the file exists
         if os.path.exists(file_name) and os.path.isfile(file_name) :
             
             running_header_bytes = file_name.ljust(100, '\x00')
+            #If I can get my_record to work, then I may not need
+            # the running total of vb_file_contents_pre_chksum.
+            my_record.append(file_name.ljust(100, '\x00'))
             vb_file_contents_pre_chksum = running_header_bytes
 
             # Get file status
@@ -106,6 +134,7 @@ def create_tar_file(file_list, ip_new_tar_file):
             file_permissions_to_store = file_permissions_octal[2:]
 
             running_header_bytes += file_permissions_to_store.rjust(7, '0') + '\x00'
+            my_record.append(file_permissions_to_store.rjust(7, '0') + '\x00')
             vb_file_contents_pre_chksum += file_permissions_to_store.rjust(7, '0') + '\x00'
 
 #################################################################################
@@ -120,6 +149,7 @@ def create_tar_file(file_list, ip_new_tar_file):
             file_uid_octal = oct(file_uid)
             file_uid_to_store = file_uid_octal[2:]
             running_header_bytes += file_uid_to_store.rjust(7, '0') + '\x00' 
+            my_record.append(file_uid_to_store.rjust(7, '0') + '\x00' )
             vb_file_contents_pre_chksum += file_uid_to_store.rjust(7, '0') + '\x00' 
             
             #GID
@@ -127,6 +157,7 @@ def create_tar_file(file_list, ip_new_tar_file):
             file_gid_octal = oct(file_gid)
             file_gid_to_store = file_gid_octal[2:]
             running_header_bytes += file_gid_to_store.rjust(7, '0') + '\x00' 
+            my_record.append( file_gid_to_store.rjust(7, '0') + '\x00' )
             vb_file_contents_pre_chksum += file_gid_to_store.rjust(7, '0') + '\x00' 
             
             #File Size
@@ -134,6 +165,7 @@ def create_tar_file(file_list, ip_new_tar_file):
             file_size_octal = oct(file_size)
             file_size_to_store = file_size_octal[2:]
             running_header_bytes += file_size_to_store.rjust(11, '0') + '\x00' 
+            my_record.append(file_size_to_store.rjust(11, '0') + '\x00')
             vb_file_contents_pre_chksum += file_size_to_store.rjust(11, '0') + '\x00' 
             
             # Time - last updated
@@ -141,6 +173,7 @@ def create_tar_file(file_list, ip_new_tar_file):
             file_mtime_octal = oct(int(file_mtime))
             file_mtime_to_store = file_mtime_octal[2:]
             running_header_bytes += file_mtime_to_store.rjust(11, '0') + '\x00'
+            my_record.append(file_mtime_to_store.rjust(11, '0') + '\x00')
             vb_file_contents_pre_chksum += file_mtime_to_store.rjust(11, '0') + '\x00'
             
             my_checksum = 0
@@ -151,60 +184,75 @@ def create_tar_file(file_list, ip_new_tar_file):
                     my_checksum += ord(byte)
             #Checksum. This is made up, for now.
             running_header_bytes += '        '
+            my_record.append('        ')
             mychksum = 5342
             mychksum_oct = oct(mychksum)
 
             #We already confirmed this is good old, standard file.
             #Now we tell the tar file.
             running_header_bytes += '0'
+            my_record.append('0')
             vb_file_contents_post_chksum +=  '0'
 
             #Name of the linked file. Out of scope, here and now.
             running_header_bytes += str('').rjust(100, '\x00')
+            my_record.append(str('').rjust(100, '\x00'))
             vb_file_contents_post_chksum += str('').rjust(100, '\x00')
 
-            magic = 'ustar  '
+            magic = 'ustar '
             running_header_bytes += magic + '\x00'
+            my_record.append(magic + '\x00')
             vb_file_contents_post_chksum += magic + '\x00'
+
+            #Version characters.
+            my_record.append(' ' + '\x00')
 
             # Get the user name (uname) associated with the file's user ID (uid)
             user_name = pwd.getpwuid(file_status.st_uid).pw_name
             running_header_bytes += user_name.ljust(32, '\x00')
+            my_record.append(user_name.ljust(32, '\x00'))
             vb_file_contents_post_chksum += user_name.ljust(32, '\x00')
 
             # Get the group name (gname) associated with the file's group ID (gid)
             group_name = grp.getgrgid(file_status.st_gid).gr_name
             running_header_bytes += group_name.ljust(32, '\x00')
+            my_record.append(group_name.ljust(32, '\x00'))
             vb_file_contents_post_chksum += group_name.ljust(32, '\x00')
 
             #devmajor - ignored for this
             devmajor = ''
             running_header_bytes += devmajor.ljust(8, '\x00')
+            my_record.append(devmajor.ljust(8, '\x00'))
             vb_file_contents_post_chksum += devmajor.ljust(8, '\x00')
 
             #devminor - ignored for this
             devminor = ''
             running_header_bytes += devminor.ljust(8, '\x00')
+            my_record.append(devminor.ljust(8, '\x00'))
             vb_file_contents_post_chksum += devminor.ljust(8, '\x00')
 
             #prefix - ignored for this. I cannot reegineer everything.
             prefix = ''
             running_header_bytes += prefix.ljust(155, '\x00')
+            my_record.append(prefix.ljust(155, '\x00'))
             vb_file_contents_post_chksum += prefix.ljust(155, '\x00')
 
             headerwrapup = ''
             running_header_bytes += headerwrapup.ljust(12, '\x00')
+            my_record.append(headerwrapup.ljust(12, '\x00'))
             vb_file_contents_post_chksum += headerwrapup.ljust(12, '\x00')
 
             my_checksum = 0
-            byte_array = running_header_bytes.encode('utf-8')
-            my_checksum = [byte for byte in byte_array]
-            my_checksum_str = oct(sum(my_checksum))[2:].rjust(6,'0') + '\x00' + ' ' 
-
-            with open(ip_new_tar_file, 'a') as f:
-                f.write(vb_file_contents_pre_chksum)
-                f.write(my_checksum_str)
-                f.write(vb_file_contents_post_chksum)
+            my_checksum = sum(ord(byte) for byte in ''.join(my_record))  # Sum of ASCII values of all characters in my_record
+            my_checksum_str = oct(my_checksum)[2:].rjust(6, '0') + '\x00' + ' '
+            
+            # Insert checksum into my_record at index 6
+            my_record[6] = my_checksum_str
+            
+            my_record_bytes = [field.encode('utf-8') for field in my_record]
+            binary_data = struct.pack(record_format, *my_record_bytes)
+            with open(ip_new_tar_file, 'ab') as f:
+                f.write(binary_data)
             
             # Populating the file with the contents
             # of the file we are tar-ing
