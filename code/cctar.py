@@ -110,19 +110,13 @@ def create_tar_file(file_list, ip_new_tar_file):
     # Assuming file_names is a list containing file names
     for file_name in file_list:
         # Initialize my variables.
-        vb_file_contents_pre_chksum = ''
-        vb_file_contents_post_chksum = ''
         my_record = [ ]
         
         # Add your processing logic here for each file_name
         # Check if the file exists
         if os.path.exists(file_name) and os.path.isfile(file_name) :
             
-            running_header_bytes = file_name.ljust(100, '\x00')
-            #If I can get my_record to work, then I may not need
-            # the running total of vb_file_contents_pre_chksum.
             my_record.append(file_name.ljust(100, '\x00'))
-            vb_file_contents_pre_chksum = running_header_bytes
 
             # Get file status
             file_status = os.stat(file_name)
@@ -133,9 +127,7 @@ def create_tar_file(file_list, ip_new_tar_file):
             #Get rid if the 1st two characters. They are 0o or somesuch
             file_permissions_to_store = file_permissions_octal[2:]
 
-            running_header_bytes += file_permissions_to_store.rjust(7, '0') + '\x00'
             my_record.append(file_permissions_to_store.rjust(7, '0') + '\x00')
-            vb_file_contents_pre_chksum += file_permissions_to_store.rjust(7, '0') + '\x00'
 
 #################################################################################
 #           # Getting into some weeds
@@ -148,99 +140,64 @@ def create_tar_file(file_list, ip_new_tar_file):
             file_uid = file_status.st_uid # & 0o777
             file_uid_octal = oct(file_uid)
             file_uid_to_store = file_uid_octal[2:]
-            running_header_bytes += file_uid_to_store.rjust(7, '0') + '\x00' 
             my_record.append(file_uid_to_store.rjust(7, '0') + '\x00' )
-            vb_file_contents_pre_chksum += file_uid_to_store.rjust(7, '0') + '\x00' 
             
             #GID
             file_gid = file_status.st_gid 
             file_gid_octal = oct(file_gid)
             file_gid_to_store = file_gid_octal[2:]
-            running_header_bytes += file_gid_to_store.rjust(7, '0') + '\x00' 
             my_record.append( file_gid_to_store.rjust(7, '0') + '\x00' )
-            vb_file_contents_pre_chksum += file_gid_to_store.rjust(7, '0') + '\x00' 
             
             #File Size
             file_size = file_status.st_size
             file_size_octal = oct(file_size)
             file_size_to_store = file_size_octal[2:]
-            running_header_bytes += file_size_to_store.rjust(11, '0') + '\x00' 
             my_record.append(file_size_to_store.rjust(11, '0') + '\x00')
-            vb_file_contents_pre_chksum += file_size_to_store.rjust(11, '0') + '\x00' 
             
             # Time - last updated
             file_mtime = file_status.st_mtime
             file_mtime_octal = oct(int(file_mtime))
             file_mtime_to_store = file_mtime_octal[2:]
-            running_header_bytes += file_mtime_to_store.rjust(11, '0') + '\x00'
             my_record.append(file_mtime_to_store.rjust(11, '0') + '\x00')
-            vb_file_contents_pre_chksum += file_mtime_to_store.rjust(11, '0') + '\x00'
             
-            my_checksum = 0
-            for byte in running_header_bytes:
-                if byte == '\x00':
-                    my_checksum += ord(' ')
-                else:
-                    my_checksum += ord(byte)
             #Checksum. This is made up, for now.
-            running_header_bytes += '        '
             my_record.append('        ')
-            mychksum = 5342
-            mychksum_oct = oct(mychksum)
 
             #We already confirmed this is good old, standard file.
             #Now we tell the tar file.
-            running_header_bytes += '0'
             my_record.append('0')
-            vb_file_contents_post_chksum +=  '0'
 
             #Name of the linked file. Out of scope, here and now.
-            running_header_bytes += str('').rjust(100, '\x00')
             my_record.append(str('').rjust(100, '\x00'))
-            vb_file_contents_post_chksum += str('').rjust(100, '\x00')
 
             magic = 'ustar '
-            running_header_bytes += magic + '\x00'
             my_record.append(magic + '\x00')
-            vb_file_contents_post_chksum += magic + '\x00'
 
             #Version characters.
             my_record.append(' ' + '\x00')
 
             # Get the user name (uname) associated with the file's user ID (uid)
             user_name = pwd.getpwuid(file_status.st_uid).pw_name
-            running_header_bytes += user_name.ljust(32, '\x00')
             my_record.append(user_name.ljust(32, '\x00'))
-            vb_file_contents_post_chksum += user_name.ljust(32, '\x00')
 
             # Get the group name (gname) associated with the file's group ID (gid)
             group_name = grp.getgrgid(file_status.st_gid).gr_name
-            running_header_bytes += group_name.ljust(32, '\x00')
             my_record.append(group_name.ljust(32, '\x00'))
-            vb_file_contents_post_chksum += group_name.ljust(32, '\x00')
 
             #devmajor - ignored for this
             devmajor = ''
-            running_header_bytes += devmajor.ljust(8, '\x00')
             my_record.append(devmajor.ljust(8, '\x00'))
-            vb_file_contents_post_chksum += devmajor.ljust(8, '\x00')
 
             #devminor - ignored for this
             devminor = ''
-            running_header_bytes += devminor.ljust(8, '\x00')
             my_record.append(devminor.ljust(8, '\x00'))
-            vb_file_contents_post_chksum += devminor.ljust(8, '\x00')
 
             #prefix - ignored for this. I cannot reegineer everything.
             prefix = ''
-            running_header_bytes += prefix.ljust(155, '\x00')
             my_record.append(prefix.ljust(155, '\x00'))
-            vb_file_contents_post_chksum += prefix.ljust(155, '\x00')
 
             headerwrapup = ''
-            running_header_bytes += headerwrapup.ljust(12, '\x00')
             my_record.append(headerwrapup.ljust(12, '\x00'))
-            vb_file_contents_post_chksum += headerwrapup.ljust(12, '\x00')
 
             my_checksum = 0
             my_checksum = sum(ord(byte) for byte in ''.join(my_record))  # Sum of ASCII values of all characters in my_record
