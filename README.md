@@ -30,16 +30,35 @@ The parameters are different, and limited.
 * extact
 ```
 The corresponding commands would be:
-python3 cctar.py list files.tar 
-python3 cctar.py create files.tar file1.txt file2.txt file3.txt
-python3 cctar.py extract files.tar 
-
-This is not a complete re-creation of the tar command.
+```
+* python3 cctar.py list files.tar 
+* python3 cctar.py create files.tar file1.txt file2.txt file3.txt
+* python3 cctar.py extract files.tar 
+```
+This is not a __complete__ re-creation of the tar command.
 
 This code is limited by the implied scope of the original challenge.
-For example:
+
+__For example:__
+```
 * The file names do not include, or deal with, subdirectories.
 * The contents of each file is small. There is no overflow past 512 bytes.
 * Only 3 files are put into the original tarball. Additional files may, or may not work.
+```
+## Installation Option
+After downloading to your computer:
+* Move to the subdirectory with _setup.py_
+* Run pip install .
+* Change the file permissions for cctar.py:
+```
+ chmod +x cctar.py
+```
+You should then be able to run the program without explicity calling python3.
+```
+* cctar.py list files.tar 
+* cctar.py create files.tar file1.txt file2.txt file3.txt
+* cctar.py extract files.tar 
+```
+
 
 Shout out to John for giving me some feedback on the code itself. My original release seemed to work, within scope, but it was definitely chaotic. He recommended that I review the struct library. That took some additional thought on my part, but it does look like code that will be more clear in six months than what I had originally wrote.
