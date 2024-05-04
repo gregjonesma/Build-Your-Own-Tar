@@ -2,30 +2,33 @@
 A "Coding Challenge" from John Crickett's  [Coding Challenges](https://codingchallenges.fyi/challenges/intro)
 
 In specific, look to his [Build Your Own Tar] (https://codingchallenges.fyi/challenges/challenge-tar) challenge.
-
+## System Requirements
 This solution was built on Ubuntu Linux (Ubuntu 22.04.4 LTS) using Python3 (3.10.12). 
-
+## Scope Limitations
 My solution has definite limitations and variations.
 
 Since I wrote this in Ubuntu, I got a surprise lesson in "blocking factors". Ubuntu's version of tar uses a blocking factor of 20. For the purposes of this challenge, that means a lot of 512 blocks that are only null bytes.
 
 To keep in scope and honor the spirit of the challenge, if not the exact letter, I modified the tar command used to create the intial tar file to be used to compare your work against.
 
-Instead of:
+__Instead of:__
+```
 tar -cf files.tar file1.txt file2.txt file3.txt
-
-I used 
+```
+__I used:__
+```
 tar -c -b 8 -f files.tar file1.txt file2.txt file3.txt
-
+```
 That should give you 2 sets of 512 null bytes.
 
 Otherwise, you end up with an additonal 12 sets of 512 null bytes.
 
-The parameters are different and limited. 
-"list"
-"create"
-"extact"
-
+The parameters are different, and limited. 
+```
+* list
+* create
+* extact
+```
 The corresponding commands would be:
 python3 cctar.py list files.tar 
 python3 cctar.py create files.tar file1.txt file2.txt file3.txt
